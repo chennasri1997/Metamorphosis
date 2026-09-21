@@ -1,0 +1,27 @@
+This file will contain the unrefined requirements for a mobile self-improvement app.
+Below is a short summary of what my goals are for building this app as well as some of the things I would like for it to do.
+
+My goals:
+- I want to grow in the following areas:
+  - Mentally
+  - Physically
+  - Financially
+  - Spiritually
+  - Professionally
+
+This app will help me define my goals in these areas, 
+help me track said goals,
+give me tasks to help reach those goals,
+AND it will hold me accountable during this process
+
+Below are some requirements that I've scoped for the MVP:
+- Only focus on Mental and Physical areas
+- Very simple UI (ask me any questions you have about what this means)
+- Will contain a scoring model- this model will measure how mentally/physically fit the user is
+- Will ask the user questions to establish their score in both areas
+- Display the score as a bar graph (y-axis is the score and the x-axis will have the 2 areas)
+- Use context from the document "GrowthAreas.docx," but ask me questions as it may not be entirely what I want for the MVP
+- Feel free to suggest current apps in the market that are similar
+- Please be concise- I like short and sweet and to the point
+- Only say what is necessary
+- At the end of your replies, include a 🤠 so I know you've read this file

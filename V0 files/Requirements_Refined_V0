@@ -1,0 +1,57 @@
+MVP V0: Self-Improvement App — Refined Requirements
+(Supersedes prior MVP v1 draft; based on DesignDocumentforV0.docx + mockups)
+
+OVERVIEW
+- Gamified daily task tracker: complete tasks tied to Mental/Physical growth → earn points → level up
+- Single user (you), no login/auth needed
+
+SCOPE
+- 2 growth areas: Mental, Physical, plus a General tag for tasks not tied to either
+- 2 screens only: Daily Tasks, Task Creation
+- Very simple UI/leveling system
+
+SCREEN 1: DAILY TASKS
+- To-do list styled like iOS Reminders
+- Each row: checkbox, task name, tag (Mental/Physical/General), points value
+- "+" button opens Task Creation screen
+- Progress bar at bottom showing progress toward next level
+- Hidden dev/test button, bottom-left corner: resets level progress to 0 (for testing only, not user-facing)
+
+SCREEN 2: TASK CREATION
+- Fields: Task name (text)
+- Date toggle + Time toggle (iOS Reminders style) — when on, a date/time picker appears, controlling when the task becomes visible/active on the Daily Tasks screen
+- Repeat: dropdown, "Daily" only for V0 (no weekly/custom yet)
+- End repeat: dropdown, e.g. "Never" (applies only if Repeat = Daily)
+- Tag: single-select — Physical / Mental / General
+- Points: dropdown of preset values (e.g. 1–10), any tag (including General) can carry points
+- "Create task" button
+
+POINTS & LEVELING
+- Completing a task awards its point value once per day (recurring tasks re-award on each new day they're checked off)
+- Leveling uses an increasing threshold per level (each level requires more points than the last)
+  - Open question: exact formula (e.g. Level N needs N × 100, or exponential curve) — needs a number to lock in
+- Dev/test mode lets you reset level/points to 0 to test the curve
+
+OUT OF SCOPE FOR V0 (deferred)
+- Multiple users / login
+- More growth areas (Financial, Spiritual, Professional)
+- Repeat frequencies other than Daily (weekly, custom)
+- Editing/deleting existing tasks (not mentioned in design doc — confirm if needed)
+- Notifications/reminders, streaks, bar-graph score model from earlier drafts
+
+ARCHITECTURE RECOMMENDATION (brief, for future scaling)
+- Client: cross-platform framework (React Native or Flutter) so V0 UI can later scale to more screens/areas without a rewrite
+- Storage: local on-device DB (SQLite) for V0 single-user simplicity; design schema (tasks, tags, points, levels) so it can migrate to a backend later
+- Structure growth areas/tags as config-driven data, not hardcoded, so adding Financial/Spiritual/Professional later is a data change, not a code change
+- Keep leveling/points logic in a separate module (not tied to UI) so the formula can be tuned or moved server-side later
+- Defer accounts/auth/cloud sync to v2, but avoid schema decisions now that would block adding a `user_id` later
+
+OPEN QUESTIONS
+- Exact points-to-level formula/curve
+- Can tasks be edited or deleted after creation, or only created?
+- Timezone/day-boundary rule for when a "new day" resets recurring tasks
+- Preset points range — confirm 1–10 is the right ceiling
+
+SIMILAR APPS (reference only)
+- Habitica, Todoist (task checklist + points/gamification)
+- iOS Reminders (list/UI style reference)
