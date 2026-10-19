@@ -44,15 +44,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (!existing) return NextResponse.json({ error: 'task not found' }, { status: 404 });
 
   const body = await request.json();
-  const { title, deadline, completed, steps } = body as {
+  const { title, deadline, completed, steps, addStep } = body as {
     title?: string;
     deadline?: string;
     completed?: boolean;
     steps?: { text: string }[];
+    addStep?: string;
   };
 
   if (steps && steps.length > MAX_STEPS) {
     return NextResponse.json({ error: `a task can have at most ${MAX_STEPS} steps` }, { status: 400 });
+  }
+  if (typeof addStep === 'string' && !addStep.trim()) {
+    return NextResponse.json({ error: 'step text is required' }, { status: 400 });
   }
 
   db.prepare('UPDATE tasks SET title = ?, deadline = ? WHERE id = ?').run(
@@ -61,20 +65,33 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     taskId,
   );
 
-  // Replacing the full steps list keeps edits simple (no per-step diffing needed for an MVP).
   if (steps) {
-    db.prepare('DELETE FROM steps WHERE taskId = ?').run(taskId);
-    const insertStep = db.prepare('INSERT INTO steps (taskId, text, "order") VALUES (?, ?, ?)');
-    steps.forEach((step, index) => insertStep.run(taskId, step.text, index + 1));
+    db.transaction(() => {
+      db.prepare('DELETE FROM steps WHERE taskId = ?').run(taskId);
+      const insertStep = db.prepare('INSERT INTO steps (taskId, text, "order") VALUES (?, ?, ?)');
+      steps.forEach((step, index) => insertStep.run(taskId, step.text, index + 1));
+      db.prepare('UPDATE tasks SET completed = 0 WHERE id = ?').run(taskId);
+    })();
   }
 
-  const stepCount = (
-    db.prepare('SELECT COUNT(*) as count FROM steps WHERE taskId = ?').get(taskId) as { count: number }
-  ).count;
+  if (typeof addStep === 'string') {
+    const stepCount = (
+      db.prepare('SELECT COUNT(*) as count FROM steps WHERE taskId = ?').get(taskId) as { count: number }
+    ).count;
+    if (stepCount >= MAX_STEPS) {
+      return NextResponse.json({ error: `a task can have at most ${MAX_STEPS} steps` }, { status: 400 });
+    }
+    db.transaction(() => {
+      db.prepare('INSERT INTO steps (taskId, text, "order") VALUES (?, ?, ?)').run(taskId, addStep.trim(), stepCount + 1);
+      db.prepare('UPDATE tasks SET completed = 0 WHERE id = ?').run(taskId);
+    })();
+  }
 
-  // A task with steps is only "completed" once every step is checked; one with none is a plain checkbox.
-  if (stepCount === 0 && typeof completed === 'boolean') {
-    db.prepare('UPDATE tasks SET completed = ? WHERE id = ?').run(completed ? 1 : 0, taskId);
+  if (typeof completed === 'boolean') {
+    db.transaction(() => {
+      db.prepare('UPDATE steps SET completed = ? WHERE taskId = ?').run(completed ? 1 : 0, taskId);
+      db.prepare('UPDATE tasks SET completed = ? WHERE id = ?').run(completed ? 1 : 0, taskId);
+    })();
   }
 
   return NextResponse.json(getTaskWithSteps(taskId));

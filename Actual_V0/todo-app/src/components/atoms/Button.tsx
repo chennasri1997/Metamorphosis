@@ -9,7 +9,7 @@ const variantToAntd: Record<Variant, Pick<AntButtonProps, 'type' | 'danger'>> = 
   danger: { type: 'primary', danger: true },
 };
 
-interface ButtonProps extends Omit<AntButtonProps, 'type' | 'danger'> {
+interface ButtonProps extends Omit<AntButtonProps, 'type' | 'danger' | 'variant'> {
   variant?: Variant;
 }
 
