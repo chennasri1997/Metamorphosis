@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import CompletedTaskSection from '@/components/organisms/CompletedTaskSection';
 import TaskList from '@/components/organisms/TaskList';
 import TaskView from '@/components/organisms/TaskView';
-import { BRIDGE_COLOR } from '@/lib/theme';
+import { palette } from '@/lib/theme';
 import type { Task } from '@/lib/types';
 
 export default function Home() {
@@ -13,8 +14,17 @@ export default function Home() {
   const [loadError, setLoadError] = useState('');
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [selectedRowEl, setSelectedRowEl] = useState<HTMLDivElement | null>(null);
+  const [selectedTitleEl, setSelectedTitleEl] = useState<HTMLSpanElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [seamPatch, setSeamPatch] = useState<{ top: number; height: number } | null>(null);
+  const taskViewRef = useRef<HTMLDivElement>(null);
+  const [selectedGradient, setSelectedGradient] = useState<CSSProperties | undefined>();
+  const [detailGradient, setDetailGradient] = useState<CSSProperties | undefined>();
+  const [seamPatch, setSeamPatch] = useState<{
+    top: number;
+    left: number;
+    height: number;
+    background: CSSProperties;
+  } | null>(null);
 
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
   const completedTasks = tasks.filter((task) => task.completed);
@@ -38,16 +48,50 @@ export default function Home() {
     };
   }, []);
 
-  // Measure the selected row so we can paint over the border seam at exactly its height.
   useLayoutEffect(() => {
-    if (!selectedRowEl || !containerRef.current) {
+    if (!selectedRowEl || !selectedTitleEl || !containerRef.current || !taskViewRef.current) {
+      setSelectedGradient(undefined);
+      setDetailGradient(undefined);
       setSeamPatch(null);
       return;
     }
-    const rowRect = selectedRowEl.getBoundingClientRect();
-    const containerRect = containerRef.current.getBoundingClientRect();
-    setSeamPatch({ top: rowRect.top - containerRect.top, height: rowRect.height });
-  }, [selectedRowEl, selectedTaskId]);
+
+    const updateGradient = () => {
+      const rowRect = selectedRowEl.getBoundingClientRect();
+      const titleRect = selectedTitleEl.getBoundingClientRect();
+      const containerRect = containerRef.current!.getBoundingClientRect();
+      const detailRect = taskViewRef.current!.getBoundingClientRect();
+      const gradientWidth = containerRect.right - rowRect.left;
+      const midpointPosition = Math.min(gradientWidth, titleRect.right - rowRect.left);
+      const gradientImage = `linear-gradient(90deg, ${palette.swallowtailYellow} 0px, ${palette.gradientMidpoint} ${midpointPosition}px, ${palette.warmPaleYellow} ${gradientWidth}px)`;
+      const gradientSize = `${gradientWidth}px 100%`;
+      const background = {
+        backgroundImage: gradientImage,
+        backgroundSize: gradientSize,
+        backgroundRepeat: 'no-repeat' as const,
+      };
+
+      setSelectedGradient({ ...background, backgroundPosition: 'left center' });
+      setDetailGradient({
+        ...background,
+        backgroundPosition: `-${detailRect.left - rowRect.left}px center`,
+        backgroundOrigin: 'border-box',
+      });
+
+      const seamLeft = detailRect.left - containerRect.left - 2;
+      const seamOffset = seamLeft - (rowRect.left - containerRect.left);
+      setSeamPatch({
+        top: rowRect.top - containerRect.top,
+        left: seamLeft,
+        height: rowRect.height,
+        background: { ...background, backgroundPosition: `-${seamOffset}px center` },
+      });
+    };
+
+    updateGradient();
+    window.addEventListener('resize', updateGradient);
+    return () => window.removeEventListener('resize', updateGradient);
+  }, [selectedRowEl, selectedTitleEl, selectedTaskId]);
 
   const toggleStep = async (stepId: number, completed: boolean) => {
     if (selectedTaskId === null) return;
@@ -121,6 +165,8 @@ export default function Home() {
             selectedTaskId={selectedTaskId}
             onSelectTask={setSelectedTaskId}
             onSelectedRowElement={setSelectedRowEl}
+            onSelectedTitleElement={setSelectedTitleEl}
+            selectedGradient={selectedGradient}
             onToggleComplete={toggleTaskCompletion}
             canAddTask={!isLoadingTasks && !loadError && tasks.length < 9}
             onCreateTask={createTask}
@@ -128,19 +174,24 @@ export default function Home() {
           />
           <CompletedTaskSection tasks={completedTasks} onToggleComplete={toggleTaskCompletion} />
         </div>
-        <div className="h-96 sm:col-span-1">
-          <TaskView task={selectedTask} onToggleStep={toggleStep} onAddStep={addStep} />
+        <div ref={taskViewRef} className="h-96 sm:col-span-1">
+          <TaskView
+            task={selectedTask}
+            onToggleStep={toggleStep}
+            onAddStep={addStep}
+            highlightGradient={detailGradient}
+          />
         </div>
         {seamPatch && (
           <div
             className="pointer-events-none absolute hidden sm:block"
             style={{
-              left: 'calc(50% - 2px)',
+              left: seamPatch.left,
               top: seamPatch.top,
               height: seamPatch.height,
               width: '4px',
-              backgroundColor: BRIDGE_COLOR,
               zIndex: 30,
+              ...seamPatch.background,
             }}
           />
         )}

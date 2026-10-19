@@ -36,6 +36,8 @@ export default function CompletedTaskSection({ tasks, onToggleComplete }: Comple
             <TaskListRow
               key={task.id}
               title={task.title}
+              deadline={task.deadline}
+              stepCount={task.steps.length}
               selected={false}
               completed
               onToggleComplete={(completed) => onToggleComplete(task.id, completed)}

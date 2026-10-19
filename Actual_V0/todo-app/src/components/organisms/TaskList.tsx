@@ -4,12 +4,15 @@ import { useState } from 'react';
 import TaskListRow from '@/components/molecules/TaskListRow';
 import { palette } from '@/lib/theme';
 import type { Task } from '@/lib/types';
+import type { CSSProperties } from 'react';
 
 interface TaskListProps {
   tasks: Task[];
   selectedTaskId: number | null;
   onSelectTask: (taskId: number) => void;
   onSelectedRowElement?: (el: HTMLDivElement | null) => void;
+  onSelectedTitleElement?: (el: HTMLSpanElement | null) => void;
+  selectedGradient?: CSSProperties;
   onToggleComplete: (taskId: number, completed: boolean) => void;
   canAddTask: boolean;
   onCreateTask: (title: string) => Promise<void>;
@@ -21,6 +24,8 @@ export default function TaskList({
   selectedTaskId,
   onSelectTask,
   onSelectedRowElement,
+  onSelectedTitleElement,
+  selectedGradient,
   onToggleComplete,
   canAddTask,
   onCreateTask,
@@ -75,11 +80,15 @@ export default function TaskList({
         itemRender={(task) => (
           <TaskListRow
             title={task.title}
+            deadline={task.deadline}
+            stepCount={task.steps.length}
             selected={task.id === selectedTaskId}
             completed={task.completed}
             onToggleComplete={(completed) => onToggleComplete(task.id, completed)}
             onClick={() => onSelectTask(task.id)}
             rowRef={task.id === selectedTaskId ? onSelectedRowElement : undefined}
+            titleRef={task.id === selectedTaskId ? onSelectedTitleElement : undefined}
+            selectedGradient={task.id === selectedTaskId ? selectedGradient : undefined}
           />
         )}
       />

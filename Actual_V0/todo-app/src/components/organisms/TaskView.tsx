@@ -1,19 +1,22 @@
-import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
+import { CloseOutlined, DownOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons';
 import { Alert, Button, Card, Input } from 'antd';
 import { useState } from 'react';
+import type { CSSProperties } from 'react';
 import DateBadge from '@/components/atoms/DateBadge';
 import StepRow from '@/components/molecules/StepRow';
-import { BRIDGE_COLOR, palette } from '@/lib/theme';
+import { palette } from '@/lib/theme';
 import type { Task } from '@/lib/types';
 
 interface TaskViewProps {
   task: Task | null;
   onToggleStep: (stepId: number, completed: boolean) => void;
   onAddStep: (taskId: number, text: string) => Promise<void>;
+  highlightGradient?: CSSProperties;
 }
 
-export default function TaskView({ task, onToggleStep, onAddStep }: TaskViewProps) {
+export default function TaskView({ task, onToggleStep, onAddStep, highlightGradient }: TaskViewProps) {
   const [addingTaskId, setAddingTaskId] = useState<number | null>(null);
+  const [collapsedStepsTaskId, setCollapsedStepsTaskId] = useState<number | null>(null);
   const [stepText, setStepText] = useState('');
   const [stepError, setStepError] = useState('');
   const [isSavingStep, setIsSavingStep] = useState(false);
@@ -42,10 +45,63 @@ export default function TaskView({ task, onToggleStep, onAddStep }: TaskViewProp
     setAddingTaskId(null);
   }
 
+  function startAddingStep() {
+    if (!task) return;
+    setStepText('');
+    setStepError('');
+    setAddingTaskId(task.id);
+  }
+
+  const stepInput = task && (
+    <form onSubmit={submitStep} className="mt-3 flex items-center gap-2">
+      <Input
+        autoFocus
+        aria-label="Step name"
+        placeholder="Step name"
+        value={stepText}
+        disabled={isSavingStep}
+        onChange={(event) => setStepText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') cancelStep();
+        }}
+      />
+      <Button
+        type="text"
+        htmlType="button"
+        aria-label="Cancel adding step"
+        icon={<CloseOutlined />}
+        disabled={isSavingStep}
+        onClick={cancelStep}
+      />
+    </form>
+  );
+
+  const addStepButton = task && task.steps.length < 9 && (
+    <div className="mt-2 flex justify-center">
+      <Button
+        type="text"
+        aria-label="Add another step"
+        title="Add another step"
+        icon={<PlusOutlined style={{ fontSize: 21, fontWeight: 600 }} />}
+        style={{
+          width: 36,
+          height: 36,
+          padding: 0,
+          backgroundColor: 'transparent',
+          border: 'none',
+          boxShadow: 'none',
+          color: palette.charcoal,
+        }}
+        onClick={startAddingStep}
+      />
+    </div>
+  );
+  const isStepsExpanded = task !== null && collapsedStepsTaskId !== task.id;
+
   return (
     <Card
       className="h-full"
-      style={{ backgroundColor: BRIDGE_COLOR }}
+      style={{ backgroundColor: palette.warmPaleYellow, ...(task ? highlightGradient : undefined) }}
       styles={{ body: { height: '100%', padding: 0 } }}
     >
       {task ? (
@@ -56,17 +112,39 @@ export default function TaskView({ task, onToggleStep, onAddStep }: TaskViewProp
 
           <div className="px-6">
             {task.steps.length > 0 ? (
-              <ul className="m-0 p-0">
-                {task.steps.map((step) => (
-                  <StepRow
-                    key={step.id}
-                    text={step.text}
-                    completed={step.completed}
-                    onToggle={(completed) => onToggleStep(step.id, completed)}
-                    isFirst={step.order === 1}
-                  />
-                ))}
-              </ul>
+              <section>
+                <button
+                  type="button"
+                  aria-expanded={isStepsExpanded}
+                  aria-controls={`task-steps-${task.id}`}
+                  className="flex w-full items-center gap-3 py-3 text-left"
+                  style={{
+                    color: palette.charcoal,
+                    fontSize: 21,
+                    fontWeight: 600,
+                  }}
+                  onClick={() => setCollapsedStepsTaskId(isStepsExpanded ? task.id : null)}
+                >
+                  {isStepsExpanded ? <DownOutlined /> : <RightOutlined />}
+                  <span>Steps ({task.steps.length})</span>
+                </button>
+                {isStepsExpanded && (
+                  <div id={`task-steps-${task.id}`}>
+                    <ul className="m-0 p-0">
+                      {task.steps.map((step) => (
+                        <StepRow
+                          key={step.id}
+                          text={step.text}
+                          completed={step.completed}
+                          onToggle={(completed) => onToggleStep(step.id, completed)}
+                          isFirst={step.order === 1}
+                        />
+                      ))}
+                    </ul>
+                    {addingTaskId === task.id ? stepInput : addStepButton}
+                  </div>
+                )}
+              </section>
             ) : addingTaskId === task.id ? null : (
               <div className="mt-3 flex flex-wrap items-center gap-x-2">
                 <p className="m-0" style={{ color: palette.charcoal, fontSize: 18, fontWeight: 600 }}>
@@ -86,52 +164,7 @@ export default function TaskView({ task, onToggleStep, onAddStep }: TaskViewProp
               </div>
             )}
 
-            {addingTaskId === task.id ? (
-              <form onSubmit={submitStep} className="mt-3 flex items-center gap-2">
-                <Input
-                  autoFocus
-                  aria-label="Step name"
-                  placeholder="Step name"
-                  value={stepText}
-                  disabled={isSavingStep}
-                  onChange={(event) => setStepText(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape') cancelStep();
-                  }}
-                />
-                <Button
-                  type="text"
-                  htmlType="button"
-                  aria-label="Cancel adding step"
-                  icon={<CloseOutlined />}
-                  disabled={isSavingStep}
-                  onClick={cancelStep}
-                />
-              </form>
-            ) : task.steps.length > 0 && task.steps.length < 9 ? (
-              <div className="mt-2 flex justify-center">
-                <Button
-                  type="text"
-                  aria-label="Add another step"
-                  title="Add another step"
-                  icon={<PlusOutlined style={{ fontSize: 21, fontWeight: 600 }} />}
-                  style={{
-                    width: 36,
-                    height: 36,
-                    padding: 0,
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    boxShadow: 'none',
-                    color: palette.charcoal,
-                  }}
-                  onClick={() => {
-                    setStepText('');
-                    setStepError('');
-                    setAddingTaskId(task.id);
-                  }}
-                />
-              </div>
-            ) : null}
+            {task.steps.length === 0 && addingTaskId === task.id && stepInput}
             {stepError && <Alert className="mt-2" type="error" showIcon message={stepError} />}
           </div>
         </div>
