@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import TaskCard from '@/components/organisms/TaskCard';
+import TaskList from '@/components/organisms/TaskList';
+import TaskView from '@/components/organisms/TaskView';
 import type { Task } from '@/lib/types';
 
 // Placeholder data for layout review — real API wiring comes in the next step.
@@ -41,11 +42,14 @@ const mockTasks: Task[] = [
 
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
 
-  const toggleStep = (taskId: number, stepId: number, completed: boolean) => {
+  const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
+
+  const toggleStep = (stepId: number, completed: boolean) => {
     setTasks((prev) =>
       prev.map((task) => {
-        if (task.id !== taskId) return task;
+        if (task.id !== selectedTaskId) return task;
         const steps = task.steps.map((s) => (s.id === stepId ? { ...s, completed } : s));
         const allDone = steps.length > 0 && steps.every((s) => s.completed);
         return { ...task, steps, completed: allDone };
@@ -53,23 +57,14 @@ export default function Home() {
     );
   };
 
-  const toggleTask = (taskId: number, completed: boolean) => {
-    setTasks((prev) => prev.map((task) => (task.id === taskId ? { ...task, completed } : task)));
-  };
-
   return (
     <main className="min-h-screen bg-neutral-50 px-6 py-10">
-      <div className="mx-auto max-w-5xl">
-        <h1 className="mb-6 text-2xl font-semibold">My Tasks</h1>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onToggleStep={(stepId, completed) => toggleStep(task.id, stepId, completed)}
-              onToggleTask={(completed) => toggleTask(task.id, completed)}
-            />
-          ))}
+      <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-3">
+        <div className="h-48 sm:col-span-1">
+          <TaskList tasks={tasks} selectedTaskId={selectedTaskId} onSelectTask={setSelectedTaskId} />
+        </div>
+        <div className="h-96 sm:col-span-2">
+          <TaskView task={selectedTask} onToggleStep={toggleStep} />
         </div>
       </div>
     </main>
