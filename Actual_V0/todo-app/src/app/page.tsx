@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import TaskList from '@/components/organisms/TaskList';
 import TaskView from '@/components/organisms/TaskView';
+import { BRIDGE_COLOR } from '@/lib/theme';
 import type { Task } from '@/lib/types';
 
 // Placeholder data for layout review — real API wiring comes in the next step.
@@ -43,8 +44,22 @@ const mockTasks: Task[] = [
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>(mockTasks);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [selectedRowEl, setSelectedRowEl] = useState<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [seamPatch, setSeamPatch] = useState<{ top: number; height: number } | null>(null);
 
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
+
+  // Measure the selected row so we can paint over the border seam at exactly its height.
+  useLayoutEffect(() => {
+    if (!selectedRowEl || !containerRef.current) {
+      setSeamPatch(null);
+      return;
+    }
+    const rowRect = selectedRowEl.getBoundingClientRect();
+    const containerRect = containerRef.current.getBoundingClientRect();
+    setSeamPatch({ top: rowRect.top - containerRect.top, height: rowRect.height });
+  }, [selectedRowEl, selectedTaskId]);
 
   const toggleStep = (stepId: number, completed: boolean) => {
     setTasks((prev) =>
@@ -59,13 +74,31 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-neutral-50 px-6 py-10">
-      <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-3">
+      <div ref={containerRef} className="relative mx-auto grid max-w-5xl grid-cols-1 gap-0 sm:grid-cols-3">
         <div className="h-48 sm:col-span-1">
-          <TaskList tasks={tasks} selectedTaskId={selectedTaskId} onSelectTask={setSelectedTaskId} />
+          <TaskList
+            tasks={tasks}
+            selectedTaskId={selectedTaskId}
+            onSelectTask={setSelectedTaskId}
+            onSelectedRowElement={setSelectedRowEl}
+          />
         </div>
         <div className="h-96 sm:col-span-2">
           <TaskView task={selectedTask} onToggleStep={toggleStep} />
         </div>
+        {seamPatch && (
+          <div
+            className="pointer-events-none absolute hidden sm:block"
+            style={{
+              left: 'calc(100%/3 - 2px)',
+              top: seamPatch.top,
+              height: seamPatch.height,
+              width: '4px',
+              backgroundColor: BRIDGE_COLOR,
+              zIndex: 10,
+            }}
+          />
+        )}
       </div>
     </main>
   );
