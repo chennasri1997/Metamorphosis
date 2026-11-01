@@ -6,11 +6,12 @@ interface StepRowProps {
   completed: boolean;
   onToggle: (completed: boolean) => void;
   isFirst?: boolean;
+  style?: React.CSSProperties;
 }
 
-export default function StepRow({ text, completed, onToggle, isFirst = false }: StepRowProps) {
+export default function StepRow({ text, completed, onToggle, isFirst = false, style }: StepRowProps) {
   return (
-    <li className={isFirst ? 'py-3' : 'py-1'}>
+    <li data-step-row={style ? '' : undefined} className={style ? 'flex items-center' : isFirst ? 'py-3' : 'py-1'} style={style}>
       <Checkbox
         checked={completed}
         onChange={onToggle}

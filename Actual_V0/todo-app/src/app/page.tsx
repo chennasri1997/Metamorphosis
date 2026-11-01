@@ -1,34 +1,28 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import CompletedTaskSection from '@/components/organisms/CompletedTaskSection';
 import TaskList from '@/components/organisms/TaskList';
 import TaskView from '@/components/organisms/TaskView';
+import WingShape from '@/components/organisms/WingShape';
+import DeleteTaskButton from '@/components/molecules/DeleteTaskButton';
 import { palette } from '@/lib/theme';
 import type { Task } from '@/lib/types';
 
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [pickedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
   const [loadError, setLoadError] = useState('');
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
-  const [selectedRowEl, setSelectedRowEl] = useState<HTMLDivElement | null>(null);
-  const [selectedTitleEl, setSelectedTitleEl] = useState<HTMLSpanElement | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const taskViewRef = useRef<HTMLDivElement>(null);
-  const [selectedGradient, setSelectedGradient] = useState<CSSProperties | undefined>();
-  const [detailGradient, setDetailGradient] = useState<CSSProperties | undefined>();
-  const [seamPatch, setSeamPatch] = useState<{
-    top: number;
-    left: number;
-    height: number;
-    background: CSSProperties;
-  } | null>(null);
 
-  const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
+  // The wheel always has a selection: fall back to the first active task when none is picked.
+  const selectedTask =
+    tasks.find((task) => task.id === pickedTaskId && !task.completed) ??
+    tasks.find((task) => !task.completed) ??
+    null;
+  const selectedTaskId = selectedTask?.id ?? null;
   const completedTasks = tasks.filter((task) => task.completed);
 
   useEffect(() => {
@@ -49,58 +43,6 @@ export default function Home() {
       isCurrent = false;
     };
   }, []);
-
-  useLayoutEffect(() => {
-    if (!selectedRowEl || !selectedTitleEl || !containerRef.current || !taskViewRef.current) {
-      setSelectedGradient(undefined);
-      setDetailGradient(undefined);
-      setSeamPatch(null);
-      return;
-    }
-
-    const updateGradient = () => {
-      const rowRect = selectedRowEl.getBoundingClientRect();
-      const titleRect = selectedTitleEl.getBoundingClientRect();
-      const containerRect = containerRef.current!.getBoundingClientRect();
-      const detailRect = taskViewRef.current!.getBoundingClientRect();
-      const gradientWidth = containerRect.right - rowRect.left;
-      const midpointPosition = Math.min(gradientWidth, titleRect.right - rowRect.left);
-      const gradientImage = `linear-gradient(90deg, ${palette.swallowtailYellow} 0px, ${palette.gradientMidpoint} ${midpointPosition}px, ${palette.warmPaleYellow} ${gradientWidth}px)`;
-      const gradientSize = `${gradientWidth}px 100%`;
-      const background = {
-        backgroundImage: gradientImage,
-        backgroundSize: gradientSize,
-        backgroundRepeat: 'no-repeat' as const,
-      };
-
-      setSelectedGradient({ ...background, backgroundPosition: 'left center' });
-      setDetailGradient({
-        ...background,
-        backgroundPosition: `-${detailRect.left - rowRect.left}px center`,
-        backgroundOrigin: 'border-box',
-      });
-
-      const seamLeft = detailRect.left - containerRect.left - 2;
-      const seamOffset = seamLeft - (rowRect.left - containerRect.left);
-      setSeamPatch({
-        top: rowRect.top - containerRect.top,
-        left: seamLeft,
-        height: rowRect.height,
-        background: { ...background, backgroundPosition: `-${seamOffset}px center` },
-      });
-    };
-
-    updateGradient();
-    window.addEventListener('resize', updateGradient);
-    // Edit mode changes the row's height and title width without a window resize.
-    const observer = new ResizeObserver(updateGradient);
-    observer.observe(selectedRowEl);
-    observer.observe(selectedTitleEl);
-    return () => {
-      window.removeEventListener('resize', updateGradient);
-      observer.disconnect();
-    };
-  }, [selectedRowEl, selectedTitleEl, selectedTaskId]);
 
   const toggleStep = async (stepId: number, completed: boolean) => {
     if (selectedTaskId === null) return;
@@ -191,9 +133,16 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-neutral-50 px-6 py-10">
-      <div ref={containerRef} className="relative mx-auto grid max-w-5xl grid-cols-1 items-start gap-0 sm:grid-cols-2">
-        <div className="relative z-20 w-full sm:col-span-1">
+    <main className="min-h-screen px-6 py-10" style={{ backgroundColor: palette.thistlePurple }}>
+      <div className="mx-auto grid max-w-5xl grid-cols-1 items-stretch gap-0 sm:grid-cols-2">
+        <div className="w-full sm:col-span-1">
+          <WingShape
+            action={
+              selectedTask ? (
+                <DeleteTaskButton onConfirm={() => deleteTask(selectedTask.id)} />
+              ) : null
+            }
+          >
           <TaskList
             tasks={tasks}
             selectedTaskId={selectedTaskId}
@@ -201,9 +150,6 @@ export default function Home() {
               setSelectedTaskId(taskId);
               setEditingTaskId(null);
             }}
-            onSelectedRowElement={setSelectedRowEl}
-            onSelectedTitleElement={setSelectedTitleEl}
-            selectedGradient={selectedGradient}
             onToggleComplete={toggleTaskCompletion}
             editingTaskId={editingTaskId}
             draftTitle={draftTitle}
@@ -214,14 +160,14 @@ export default function Home() {
             loadError={loadError}
           />
           <CompletedTaskSection tasks={completedTasks} onToggleComplete={toggleTaskCompletion} />
+          </WingShape>
         </div>
-        <div ref={taskViewRef} className="h-96 sm:col-span-1">
+        <div className="sm:col-span-1 sm:h-[368px] sm:self-start">
           <TaskView
             task={selectedTask}
             onToggleStep={toggleStep}
             onAddStep={addStep}
             onSaveTask={saveTask}
-            onDeleteTask={deleteTask}
             editingTaskId={editingTaskId}
             draftTitle={draftTitle}
             onStartEditing={(task) => {
@@ -229,22 +175,8 @@ export default function Home() {
               setEditingTaskId(task.id);
             }}
             onStopEditing={() => setEditingTaskId(null)}
-            highlightGradient={detailGradient}
           />
         </div>
-        {seamPatch && (
-          <div
-            className="pointer-events-none absolute hidden sm:block"
-            style={{
-              left: seamPatch.left,
-              top: seamPatch.top,
-              height: seamPatch.height,
-              width: '4px',
-              zIndex: 30,
-              ...seamPatch.background,
-            }}
-          />
-        )}
       </div>
     </main>
   );

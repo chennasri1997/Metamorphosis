@@ -15,23 +15,33 @@ export default function CompletedTaskSection({ tasks, onToggleComplete }: Comple
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <section
-      className="mt-0 overflow-hidden rounded-b-md rounded-t-none border-x border-b border-t-0"
-      style={{ backgroundColor: palette.warmUmberPale, borderColor: palette.warmUmberPale }}
-    >
+    <section>
       <button
         type="button"
         aria-expanded={isOpen}
         aria-controls="completed-task-list"
-        className="flex w-full items-center gap-3 px-4 py-3 text-left"
-        style={{ color: palette.charcoal, fontSize: 21, fontWeight: 600 }}
+        className="relative flex w-full items-center gap-3 text-left"
+        data-wing="completed"
+        style={{
+          backgroundColor: palette.charcoal,
+          height: 70,
+          padding: '0 104px 0 48px',
+          color: '#FFFFFF',
+          fontSize: 21,
+          fontWeight: 600,
+        }}
         onClick={() => setIsOpen((open) => !open)}
       >
         {isOpen ? <DownOutlined /> : <RightOutlined />}
-        <span>Completed ({tasks.length})</span>
+        <span
+          className="pointer-events-none absolute inset-x-0 text-center"
+          style={{ transform: 'translateX(var(--wing-shift, 0px))' }}
+        >
+          Completed ({tasks.length})
+        </span>
       </button>
       {isOpen && (
-        <div id="completed-task-list" className="border-t border-black/10 px-4 py-3">
+        <div id="completed-task-list" className="flex flex-col">
           {tasks.map((task) => (
             <TaskListRow
               key={task.id}
@@ -41,6 +51,7 @@ export default function CompletedTaskSection({ tasks, onToggleComplete }: Comple
               selected={false}
               completed
               onToggleComplete={(completed) => onToggleComplete(task.id, completed)}
+              style={{ borderRadius: 0, paddingLeft: 48, paddingRight: 104 }}
             />
           ))}
         </div>

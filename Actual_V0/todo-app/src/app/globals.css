@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #1E1B1B;
   --foreground: #171717;
   --font-ant-system: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
@@ -23,4 +23,12 @@ body {
   width: 20px;
   height: 20px;
   border-radius: 50%;
+}
+
+.wheel-scroll {
+  scrollbar-width: none;
+}
+
+.wheel-scroll::-webkit-scrollbar {
+  display: none;
 }

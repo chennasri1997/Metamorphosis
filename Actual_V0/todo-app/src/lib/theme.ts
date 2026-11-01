@@ -5,6 +5,7 @@ export const palette = {
 	steelBlue: '#3B576E',
 	redOrange: '#D74223',
 	charcoal: '#1E1B1B',
+	thistlePurple: '#B58FD0',
 	warmUmber: '#1E1B1B',
 	warmUmberLight: '#8E8D8D',
 	warmUmberPale: '#C7C6C6',
