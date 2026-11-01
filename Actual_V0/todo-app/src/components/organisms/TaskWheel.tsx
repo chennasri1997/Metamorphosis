@@ -161,6 +161,7 @@ export default function TaskWheel({
               title={task.title}
               deadline={task.deadline}
               stepCount={task.steps.length}
+              repeat={task.repeat}
               selected={isCenter}
               completed={task.completed}
               showCheckbox={isCenter}

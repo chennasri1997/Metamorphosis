@@ -54,9 +54,11 @@ function buildPanelPath(width: number, height: number, center: number, half: num
 export default function WingPanel({
   children,
   action,
+  alwaysShowAction = false,
 }: {
   children: ReactNode;
   action?: ReactNode;
+  alwaysShowAction?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [clipPath, setClipPath] = useState<string>();
@@ -72,8 +74,17 @@ export default function WingPanel({
       const bounds = container.getBoundingClientRect();
       const width = Math.round(bounds.width * 100) / 100;
       const height = Math.round(bounds.height * 100) / 100;
-      if (!wing || !wheel || width <= WING_DEPTH + CORNER * 2 || height <= CORNER * 2) {
+      if (!wing || width <= WING_DEPTH + CORNER * 2 || height <= CORNER * 2) {
         setClipPath(undefined);
+        return;
+      }
+
+      // With no tasks there is no wheel: mirror the wing's centered tip instead.
+      if (!wheel) {
+        setTipY(null);
+        container.dataset.wingCenter = String(height / 2);
+        container.dataset.wingHalf = String(height / 2);
+        setClipPath(`path('${buildPanelPath(width, height, height / 2, height / 2)}')`);
         return;
       }
 
@@ -104,7 +115,7 @@ export default function WingPanel({
       </div>
       {action && tipY !== null && (
         <div
-          className="absolute opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+          className={`absolute transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100 ${alwaysShowAction ? 'opacity-100' : 'opacity-0'}`}
           style={{ right: 16, top: tipY - 20 }}
         >
           {action}

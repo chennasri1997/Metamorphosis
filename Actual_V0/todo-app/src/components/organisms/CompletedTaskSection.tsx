@@ -32,12 +32,12 @@ export default function CompletedTaskSection({ tasks, onToggleComplete }: Comple
         }}
         onClick={() => setIsOpen((open) => !open)}
       >
-        {isOpen ? <DownOutlined /> : <RightOutlined />}
         <span
-          className="pointer-events-none absolute inset-x-0 text-center"
-          style={{ transform: 'translateX(var(--wing-shift, 0px))' }}
+          className="pointer-events-none absolute inset-x-0 flex items-center justify-center"
+          style={{ transform: 'translateX(var(--wing-shift, 0px))', gap: 9 }}
         >
-          Completed ({tasks.length})
+          {isOpen ? <DownOutlined /> : <RightOutlined />}
+          <span>Completed ({tasks.length})</span>
         </span>
       </button>
       {isOpen && (

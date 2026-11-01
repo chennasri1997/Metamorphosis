@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { isRepeat } from '@/lib/repeat';
 
 const MAX_TASKS = 9;
 const MAX_STEPS = 9;
@@ -37,7 +38,16 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { title, deadline, steps } = body as { title?: string; deadline?: string; steps?: string[] };
+  const { title, deadline, steps, repeat = 'never' } = body as {
+    title?: string;
+    deadline?: string;
+    steps?: string[];
+    repeat?: string;
+  };
+
+  if (!isRepeat(repeat)) {
+    return NextResponse.json({ error: 'invalid repeat interval' }, { status: 400 });
+  }
 
   if (!title || typeof title !== 'string') {
     return NextResponse.json({ error: 'title is required' }, { status: 400 });
@@ -54,8 +64,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `a maximum of ${MAX_TASKS} tasks is allowed` }, { status: 400 });
   }
 
-  const insertTask = db.prepare('INSERT INTO tasks (title, deadline) VALUES (?, ?)');
-  const info = insertTask.run(title, deadline);
+  const insertTask = db.prepare(  'INSERT INTO tasks (title, deadline, repeat) VALUES (?, ?, ?)');
+    const info = insertTask.run(title, deadline, repeat);
   const taskId = info.lastInsertRowid as number;
 
   if (steps && steps.length > 0) {

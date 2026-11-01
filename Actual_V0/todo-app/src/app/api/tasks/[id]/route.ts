@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { isRepeat, spawnRepeatIfNeeded } from '@/lib/repeat';
 
 const MAX_STEPS = 9;
 
@@ -44,13 +45,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (!existing) return NextResponse.json({ error: 'task not found' }, { status: 404 });
 
   const body = await request.json();
-  const { title, deadline, completed, steps, addStep } = body as {
+  const { title, deadline, completed, steps, addStep, repeat } = body as {
     title?: string;
     deadline?: string;
     completed?: boolean;
     steps?: { id?: number; text: string }[];
     addStep?: string;
+    repeat?: string;
   };
+
+  if (repeat !== undefined && !isRepeat(repeat)) {
+    return NextResponse.json({ error: 'invalid repeat interval' }, { status: 400 });
+  }
 
   if (steps && steps.length > MAX_STEPS) {
     return NextResponse.json({ error: `a task can have at most ${MAX_STEPS} steps` }, { status: 400 });
@@ -117,11 +123,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     })();
   }
 
+  if (repeat !== undefined) {
+    db.prepare('UPDATE tasks SET repeat = ? WHERE id = ?').run(repeat, taskId);
+  }
+  if (steps) spawnRepeatIfNeeded(taskId);
+
   if (typeof completed === 'boolean') {
     db.transaction(() => {
       db.prepare('UPDATE steps SET completed = ? WHERE taskId = ?').run(completed ? 1 : 0, taskId);
       db.prepare('UPDATE tasks SET completed = ? WHERE id = ?').run(completed ? 1 : 0, taskId);
     })();
+    if (completed) spawnRepeatIfNeeded(taskId);
   }
 
   return NextResponse.json(getTaskWithSteps(taskId));

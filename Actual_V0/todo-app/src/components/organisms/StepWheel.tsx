@@ -1,23 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import StepRow from '@/components/molecules/StepRow';
 import { WING_DEPTH } from '@/components/organisms/WingShape';
 import type { Task } from '@/lib/types';
 
-const STEP_ROW_HEIGHT = 48;
-const VISIBLE_STEPS = 6;
+export const STEP_ROW_HEIGHT = 48;
 
-interface StepWheelProps {
-  steps: Task['steps'];
-  onToggleStep: (stepId: number, completed: boolean) => void;
+interface ArcWheelProps {
+  label: string;
+  visibleRows: number;
+  rowCount: number;
+  children: ReactNode;
 }
 
-// Snap-scrolling list; only the first step is emphasized.
-// Rows are pushed right by the panel's left-edge arc so the list follows its curve.
-export default function StepWheel({ steps, onToggleStep }: StepWheelProps) {
+// Snap-scrolling list whose rows (marked data-step-row) are pushed right by the
+// panel's left-edge arc so the list follows its curve.
+export function ArcWheel({ label, visibleRows, rowCount, children }: ArcWheelProps) {
   const listRef = useRef<HTMLUListElement>(null);
-  const [position, setPosition] = useState(0);
 
   const applyArc = useCallback(() => {
     const list = listRef.current;
@@ -40,25 +41,36 @@ export default function StepWheel({ steps, onToggleStep }: StepWheelProps) {
     const panel = listRef.current?.closest<HTMLElement>('[data-wing-panel]');
     panel?.addEventListener('wing-panel-update', applyArc);
     return () => panel?.removeEventListener('wing-panel-update', applyArc);
-  }, [applyArc, steps.length]);
-
-  useEffect(() => {
-    applyArc();
-  }, [applyArc, position]);
+  }, [applyArc, rowCount]);
 
   return (
     <ul
       ref={listRef}
-      aria-label="Steps"
+      aria-label={label}
       className="wheel-scroll m-0 p-0"
-      onScroll={(event) => setPosition(event.currentTarget.scrollTop)}
+      onScroll={applyArc}
       style={{
-        height: STEP_ROW_HEIGHT * VISIBLE_STEPS,
+        height: STEP_ROW_HEIGHT * visibleRows,
         overflowY: 'auto',
         scrollSnapType: 'y mandatory',
         listStyle: 'none',
       }}
     >
+      {children}
+      <li aria-hidden style={{ height: STEP_ROW_HEIGHT * (visibleRows - 1) }} />
+    </ul>
+  );
+}
+
+interface StepWheelProps {
+  steps: Task['steps'];
+  onToggleStep: (stepId: number, completed: boolean) => void;
+}
+
+// Only the first step is emphasized.
+export default function StepWheel({ steps, onToggleStep }: StepWheelProps) {
+  return (
+    <ArcWheel label="Steps" visibleRows={6} rowCount={steps.length}>
       {steps.map((step, index) => (
         <StepRow
           key={step.id}
@@ -69,7 +81,6 @@ export default function StepWheel({ steps, onToggleStep }: StepWheelProps) {
           style={{ height: STEP_ROW_HEIGHT, scrollSnapAlign: 'start' }}
         />
       ))}
-      <li aria-hidden style={{ height: STEP_ROW_HEIGHT * (VISIBLE_STEPS - 1) }} />
-    </ul>
+    </ArcWheel>
   );
 }

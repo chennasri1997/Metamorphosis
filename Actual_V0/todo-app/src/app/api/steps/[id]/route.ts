@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { spawnRepeatIfNeeded } from '@/lib/repeat';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -22,6 +23,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .get(step.taskId) as { total: number; done: number | null };
   const taskCompleted = counts.total > 0 && counts.done === counts.total;
   db.prepare('UPDATE tasks SET completed = ? WHERE id = ?').run(taskCompleted ? 1 : 0, step.taskId);
+
+  if (taskCompleted) spawnRepeatIfNeeded(step.taskId);
 
   return NextResponse.json({ success: true });
 }

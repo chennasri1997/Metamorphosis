@@ -1,5 +1,4 @@
 import {
-  CloseOutlined,
   DeleteOutlined,
   DownOutlined,
   EditOutlined,
@@ -7,13 +6,14 @@ import {
   RightOutlined,
   SaveOutlined,
 } from '@ant-design/icons';
-import { Alert, Button, Card, Input } from 'antd';
+import { Alert, Button, Card, Input, Popover } from 'antd';
 import { useState } from 'react';
 import DateBadge from '@/components/atoms/DateBadge';
-import StepWheel from '@/components/organisms/StepWheel';
+import RepeatSelect from '@/components/molecules/RepeatSelect';
+import StepWheel, { ArcWheel, STEP_ROW_HEIGHT } from '@/components/organisms/StepWheel';
 import WingPanel from '@/components/organisms/WingPanel';
 import { palette } from '@/lib/theme';
-import type { Task } from '@/lib/types';
+import type { Repeat, Task } from '@/lib/types';
 
 interface TaskViewProps {
   task: Task | null;
@@ -21,7 +21,7 @@ interface TaskViewProps {
   onAddStep: (taskId: number, text: string) => Promise<void>;
   onSaveTask: (
     taskId: number,
-    updates: { title: string; deadline: string; steps: { id?: number; text: string }[] },
+    updates: { title: string; deadline: string; repeat: Repeat; steps: { id?: number; text: string }[] },
   ) => Promise<void>;
   editingTaskId: number | null;
   draftTitle: string;
@@ -45,6 +45,7 @@ export default function TaskView({
   const [stepError, setStepError] = useState('');
   const [isSavingStep, setIsSavingStep] = useState(false);
   const [draftDeadline, setDraftDeadline] = useState('');
+  const [draftRepeat, setDraftRepeat] = useState<Repeat>('never');
   const [draftSteps, setDraftSteps] = useState<{ id?: number; text: string }[]>([]);
   const [taskError, setTaskError] = useState('');
   const [isSavingTask, setIsSavingTask] = useState(false);
@@ -55,6 +56,7 @@ export default function TaskView({
   function startEditing() {
     if (!task) return;
     setDraftDeadline(task.deadline);
+    setDraftRepeat(task.repeat);
     setDraftSteps(task.steps.map(({ id, text }) => ({ id, text })));
     setTaskError('');
     onStartEditing(task);
@@ -90,7 +92,7 @@ export default function TaskView({
     setIsSavingTask(true);
     setTaskError('');
     try {
-      await onSaveTask(task.id, { title, deadline: draftDeadline, steps });
+      await onSaveTask(task.id, { title, deadline: draftDeadline, repeat: draftRepeat, steps });
       onStopEditing();
     } catch (error) {
       setTaskError(error instanceof Error ? error.message : 'Could not save task.');
@@ -118,6 +120,7 @@ export default function TaskView({
   }
 
   function cancelStep() {
+    if (isSavingStep) return;
     setStepText('');
     setStepError('');
     setAddingTaskId(null);
@@ -130,59 +133,80 @@ export default function TaskView({
     setAddingTaskId(task.id);
   }
 
-  const stepInput = task && (
-    <form onSubmit={submitStep} className="mt-3 flex items-center gap-2">
-      <Input
-        autoFocus
-        aria-label="Step name"
-        placeholder="Step name"
-        value={stepText}
-        disabled={isSavingStep}
-        onChange={(event) => setStepText(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape') cancelStep();
-        }}
-      />
+  // The add-step form floats below its trigger so the panel's layout never changes.
+  const withStepPopover = (trigger: React.ReactElement) =>
+    task && (
+      <Popover
+        open={addingTaskId === task.id}
+        placement="bottomLeft"
+        trigger="click"
+        onOpenChange={(open) => (open ? startAddingStep() : cancelStep())}
+        content={
+          <form onSubmit={submitStep} className="flex w-64 flex-col gap-2">
+            <Input
+              autoFocus
+              aria-label="Step name"
+              placeholder="Step name"
+              value={stepText}
+              disabled={isSavingStep}
+              onChange={(event) => setStepText(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') cancelStep();
+              }}
+            />
+            {stepError && (
+              <div role="alert" className="text-sm" style={{ color: palette.redOrange }}>
+                {stepError}
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button size="small" htmlType="button" disabled={isSavingStep} onClick={cancelStep}>
+                Cancel
+              </Button>
+              <Button size="small" type="primary" htmlType="submit" loading={isSavingStep} disabled={!stepText.trim()}>
+                Add
+              </Button>
+            </div>
+          </form>
+        }
+      >
+        {trigger}
+      </Popover>
+    );
+
+  const addStepButton =
+    task &&
+    task.steps.length < 9 &&
+    withStepPopover(
       <Button
         type="text"
-        htmlType="button"
-        aria-label="Cancel adding step"
-        icon={<CloseOutlined />}
-        disabled={isSavingStep}
-        onClick={cancelStep}
-      />
-    </form>
-  );
-
-  const addStepButton = task && task.steps.length < 9 && addingTaskId !== task.id && (
-    <Button
-      type="text"
-      aria-label="Add another step"
-      title="Add another step"
-      icon={<PlusOutlined style={{ fontSize: 21, fontWeight: 600 }} />}
-      style={{
-        width: 36,
-        height: 36,
-        padding: 0,
-        backgroundColor: 'transparent',
-        border: 'none',
-        boxShadow: 'none',
-        color: palette.charcoal,
-      }}
-      onClick={startAddingStep}
-    />
-  );
+        aria-label="Add another step"
+        title="Add another step"
+        icon={<PlusOutlined style={{ fontSize: 21, fontWeight: 600 }} />}
+        style={{
+          width: 36,
+          height: 36,
+          padding: 0,
+          backgroundColor: 'transparent',
+          border: 'none',
+          boxShadow: 'none',
+          color: palette.charcoal,
+        }}
+      />,
+    );
 
   return (
     <WingPanel
+      alwaysShowAction={isEditing}
       action={
-        task && !isEditing ? (
+        task ? (
           <Button
             type="primary"
             shape="circle"
-            aria-label="Edit task"
-            title="Edit task"
-            icon={<EditOutlined style={{ fontSize: 20 }} />}
+            aria-label={isEditing ? 'Save task' : 'Edit task'}
+            title={isEditing ? 'Save task' : 'Edit task'}
+            disabled={isSavingTask}
+            icon={isEditing ? <SaveOutlined style={{ fontSize: 20 }} /> : <EditOutlined style={{ fontSize: 20 }} />}
             style={{
               width: 40,
               height: 40,
@@ -191,7 +215,7 @@ export default function TaskView({
               border: 'none',
               boxShadow: 'none',
             }}
-            onClick={startEditing}
+            onClick={isEditing ? saveTaskEdits : startEditing}
           />
         ) : null
       }
@@ -199,7 +223,7 @@ export default function TaskView({
     <Card
       className="h-full"
       style={{
-        backgroundColor: palette.swallowtailYellow,
+        backgroundColor: task ? palette.swallowtailYellow : palette.warmPaleYellow,
         border: 'none',
         borderRadius: 16,
       }}
@@ -239,9 +263,6 @@ export default function TaskView({
             <div className="flex shrink-0 items-center gap-1">
               {isEditing ? (
                 <>
-                  <Button type="primary" icon={<SaveOutlined />} disabled={isSavingTask} onClick={saveTaskEdits}>
-                    Save
-                  </Button>
                   <Button type="text" disabled={isSavingTask} onClick={cancelEditing}>
                     Cancel
                   </Button>
@@ -251,15 +272,31 @@ export default function TaskView({
           </div>
 
           {isEditing ? (
-            <div className="space-y-3 pb-6 pl-6 pr-24">
+            <div className="pb-6 pl-6 pr-24">
               {draftSteps.length > 0 ? (
                 <section>
-                  <div className="py-2" style={{ color: palette.charcoal, fontSize: 21, fontWeight: 600 }}>
-                    Steps ({draftSteps.length})
+                  <div className="flex h-10 items-center gap-1" style={{ color: palette.charcoal, fontSize: 21, fontWeight: 600 }}>
+                    <span>Steps ({draftSteps.length})</span>
+                    {draftSteps.length < 9 && (
+                      <Button
+                        type="text"
+                        aria-label="Add step"
+                        title="Add step"
+                        icon={<PlusOutlined style={{ fontSize: 21, fontWeight: 600 }} />}
+                        disabled={isSavingTask}
+                        style={{ width: 36, height: 36, padding: 0, color: palette.charcoal }}
+                        onClick={() => setDraftSteps((previous) => [...previous, { text: '' }])}
+                      />
+                    )}
                   </div>
-                  <div className="space-y-2">
+                  <ArcWheel label="Edit steps" visibleRows={4} rowCount={draftSteps.length}>
                     {draftSteps.map((step, index) => (
-                      <div key={step.id ?? `new-step-${index}`} className="flex items-center gap-2">
+                      <li
+                        key={step.id ?? `new-step-${index}`}
+                        data-step-row=""
+                        className="flex items-center gap-2"
+                        style={{ height: STEP_ROW_HEIGHT, scrollSnapAlign: 'start' }}
+                      >
                         <Input
                           aria-label={`Step ${index + 1} name`}
                           value={step.text}
@@ -282,27 +319,31 @@ export default function TaskView({
                             setDraftSteps((previous) => previous.filter((_, itemIndex) => itemIndex !== index))
                           }
                         />
-                      </div>
+                      </li>
                     ))}
-                  </div>
+                  </ArcWheel>
                 </section>
               ) : (
-                <p className="m-0" style={{ color: palette.charcoal, fontSize: 18, fontWeight: 600 }}>
-                  No steps for this task.
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="m-0" style={{ color: palette.charcoal, fontSize: 18, fontWeight: 600 }}>
+                    No steps for this task.
+                  </p>
+                  <Button
+                    type="text"
+                    icon={<PlusOutlined />}
+                    disabled={isSavingTask}
+                    style={{ color: palette.charcoal }}
+                    onClick={() => setDraftSteps([{ text: '' }])}
+                  >
+                    Add step
+                  </Button>
+                </div>
               )}
-              {draftSteps.length < 9 && (
-                <Button
-                  type="text"
-                  icon={<PlusOutlined />}
-                  disabled={isSavingTask}
-                  style={{ color: palette.charcoal }}
-                  onClick={() => setDraftSteps((previous) => [...previous, { text: '' }])}
-                >
-                  Add step
-                </Button>
-              )}
-              {taskError && <Alert type="error" showIcon message={taskError} />}
+              <div className="mt-2 flex h-10 items-center gap-3" style={{ color: palette.charcoal, fontSize: 18, fontWeight: 600 }}>
+                <span>Repeat</span>
+                <RepeatSelect className="w-40" value={draftRepeat} disabled={isSavingTask} onChange={setDraftRepeat} />
+              </div>
+              {taskError && <Alert className="mt-2" type="error" showIcon message={taskError} />}
             </div>
           ) : (
             <div className="pl-6 pr-24">
@@ -311,33 +352,31 @@ export default function TaskView({
                   {isStepsExpanded && (
                     <div id={`task-steps-${task.id}`}>
                       <StepWheel steps={task.steps} onToggleStep={onToggleStep} />
-                      {addingTaskId === task.id && stepInput}
                     </div>
                   )}
                 </section>
-              ) : addingTaskId === task.id ? null : (
+              ) : (
                 <div className="mt-3 flex flex-wrap items-center gap-x-2">
                   <p className="m-0" style={{ color: palette.charcoal, fontSize: 18, fontWeight: 600 }}>
                     No steps for this task.
                   </p>
-                  <Button
-                    type="text"
-                    style={{ padding: 0, height: 'auto', color: palette.steelBlue, fontSize: 18, fontWeight: 600 }}
-                    onClick={startAddingStep}
-                  >
-                    Add a step.
-                  </Button>
+                  {withStepPopover(
+                    <Button
+                      type="text"
+                      style={{ padding: 0, height: 'auto', color: palette.steelBlue, fontSize: 18, fontWeight: 600 }}
+                    >
+                      Add a step.
+                    </Button>,
+                  )}
                 </div>
               )}
-              {task.steps.length === 0 && addingTaskId === task.id && stepInput}
-              {stepError && <Alert className="mt-2" type="error" showIcon message={stepError} />}
             </div>
           )}
         </div>
       ) : (
-        <div className="flex h-full items-center justify-center">
+        <div className="flex h-full items-center justify-center pr-[48px]">
           <p className="m-0" style={{ color: palette.charcoal, fontSize: 18, fontWeight: 600 }}>
-            No task selected.
+            Create a task to get started.
           </p>
         </div>
       )}

@@ -7,7 +7,7 @@ import TaskView from '@/components/organisms/TaskView';
 import WingShape from '@/components/organisms/WingShape';
 import DeleteTaskButton from '@/components/molecules/DeleteTaskButton';
 import { palette } from '@/lib/theme';
-import type { Task } from '@/lib/types';
+import type { Repeat, Task } from '@/lib/types';
 
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -44,6 +44,13 @@ export default function Home() {
     };
   }, []);
 
+  const refreshTasks = async () => {
+    const response = await fetch('/api/tasks');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? 'Could not load tasks.');
+    setTasks(data as Task[]);
+  };
+
   const toggleStep = async (stepId: number, completed: boolean) => {
     if (selectedTaskId === null) return;
     try {
@@ -58,6 +65,8 @@ export default function Home() {
       const updatedTask = await taskResponse.json();
       if (!taskResponse.ok) throw new Error(updatedTask.error ?? 'Could not refresh task.');
       setTasks((previous) => previous.map((task) => (task.id === selectedTaskId ? updatedTask as Task : task)));
+      // Completing a repeating task creates its next occurrence on the server.
+      if (updatedTask.completed && updatedTask.repeat !== 'never') await refreshTasks();
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Could not update step.');
     }
@@ -77,7 +86,7 @@ export default function Home() {
 
   const saveTask = async (
     taskId: number,
-    updates: { title: string; deadline: string; steps: { id?: number; text: string }[] },
+    updates: { title: string; deadline: string; repeat: Repeat; steps: { id?: number; text: string }[] },
   ) => {
     const response = await fetch(`/api/tasks/${taskId}`, {
       method: 'PATCH',
@@ -88,6 +97,7 @@ export default function Home() {
     if (!response.ok) throw new Error(data.error ?? 'Could not save task.');
     const updatedTask = data as Task;
     setTasks((previous) => previous.map((task) => (task.id === taskId ? updatedTask : task)));
+    if (updatedTask.completed && updatedTask.repeat !== 'never') await refreshTasks();
   };
 
   const deleteTask = async (taskId: number) => {
@@ -99,13 +109,13 @@ export default function Home() {
     setSelectedTaskId(null);
   };
 
-  const createTask = async (title: string) => {
+  const createTask = async (title: string, repeat: Repeat) => {
     const today = new Date();
     const deadline = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const response = await fetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, deadline, steps: [] }),
+      body: JSON.stringify({ title, deadline, repeat, steps: [] }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error ?? 'Could not save task.');
@@ -125,6 +135,7 @@ export default function Home() {
       if (!response.ok) throw new Error(data.error ?? 'Could not update task.');
       const updatedTask = data as Task;
       setTasks((previous) => previous.map((task) => (task.id === taskId ? updatedTask : task)));
+      if (completed && updatedTask.repeat !== 'never') await refreshTasks();
       setSelectedTaskId(completed ? null : taskId);
       setEditingTaskId(null);
     } catch (error) {
@@ -162,7 +173,7 @@ export default function Home() {
           <CompletedTaskSection tasks={completedTasks} onToggleComplete={toggleTaskCompletion} />
           </WingShape>
         </div>
-        <div className="sm:col-span-1 sm:h-[368px] sm:self-start">
+        <div className={`sm:col-span-1 ${selectedTask ? 'sm:h-[368px] sm:self-start' : ''}`}>
           <TaskView
             task={selectedTask}
             onToggleStep={toggleStep}

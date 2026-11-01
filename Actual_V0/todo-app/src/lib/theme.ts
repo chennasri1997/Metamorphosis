@@ -2,7 +2,7 @@ export const palette = {
 	swallowtailYellow: '#FCD637',
 	warmPaleYellow: '#F8EE90',
 	gradientMidpoint: '#FAE264',
-	steelBlue: '#3B576E',
+	steelBlue: '#3F7FD0',
 	redOrange: '#D74223',
 	charcoal: '#1E1B1B',
 	thistlePurple: '#B58FD0',

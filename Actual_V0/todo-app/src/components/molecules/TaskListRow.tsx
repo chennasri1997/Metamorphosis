@@ -1,12 +1,15 @@
+import { SyncOutlined } from '@ant-design/icons';
 import { Checkbox, Input } from 'antd';
 import type { CSSProperties } from 'react';
 import DateBadge from '@/components/atoms/DateBadge';
 import { palette } from '@/lib/theme';
+import { REPEAT_LABELS, type Repeat } from '@/lib/types';
 
 interface TaskListRowProps {
   title: string;
   deadline: string;
   stepCount: number;
+  repeat?: Repeat;
   selected: boolean;
   completed: boolean;
   isEditingTitle?: boolean;
@@ -23,6 +26,7 @@ export default function TaskListRow({
   title,
   deadline,
   stepCount,
+  repeat = 'never',
   selected,
   completed,
   isEditingTitle = false,
@@ -57,7 +61,7 @@ export default function TaskListRow({
         </span>
       )}
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className={isEditingTitle ? 'block' : completed ? 'line-through opacity-60' : 'truncate'}>
+        <span className={isEditingTitle ? 'block' : 'flex min-w-0 items-center gap-2'}>
           {isEditingTitle ? (
             <Input
               autoFocus
@@ -71,7 +75,19 @@ export default function TaskListRow({
               style={{ fontSize: 24, fontWeight: 700 }}
             />
           ) : (
-            title
+            <>
+              <span className={`min-w-0 truncate ${completed ? 'line-through opacity-60' : ''}`}>{title}</span>
+              {repeat !== 'never' && (
+                <span
+                  className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5"
+                  title={`Repeats ${REPEAT_LABELS[repeat].toLowerCase()}`}
+                  style={{ backgroundColor: palette.steelBlue, color: '#fff', fontSize: 13, fontWeight: 600 }}
+                >
+                  <SyncOutlined aria-hidden />
+                  {REPEAT_LABELS[repeat]}
+                </span>
+              )}
+            </>
           )}
         </span>
         {!selected && (

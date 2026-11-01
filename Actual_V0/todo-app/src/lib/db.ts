@@ -30,4 +30,12 @@ db.exec(`
   );
 `);
 
+const taskColumns = (db.prepare('PRAGMA table_info(tasks)').all() as { name: string }[]).map((c) => c.name);
+if (!taskColumns.includes('repeat')) {
+  db.exec("ALTER TABLE tasks ADD COLUMN repeat TEXT NOT NULL DEFAULT 'never'");
+}
+if (!taskColumns.includes('repeatSpawned')) {
+  db.exec('ALTER TABLE tasks ADD COLUMN repeatSpawned INTEGER NOT NULL DEFAULT 0');
+}
+
 export default db;
