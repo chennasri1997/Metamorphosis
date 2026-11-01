@@ -11,6 +11,8 @@ import type { Task } from '@/lib/types';
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [draftTitle, setDraftTitle] = useState('');
   const [loadError, setLoadError] = useState('');
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [selectedRowEl, setSelectedRowEl] = useState<HTMLDivElement | null>(null);
@@ -90,7 +92,14 @@ export default function Home() {
 
     updateGradient();
     window.addEventListener('resize', updateGradient);
-    return () => window.removeEventListener('resize', updateGradient);
+    // Edit mode changes the row's height and title width without a window resize.
+    const observer = new ResizeObserver(updateGradient);
+    observer.observe(selectedRowEl);
+    observer.observe(selectedTitleEl);
+    return () => {
+      window.removeEventListener('resize', updateGradient);
+      observer.disconnect();
+    };
   }, [selectedRowEl, selectedTitleEl, selectedTaskId]);
 
   const toggleStep = async (stepId: number, completed: boolean) => {
@@ -124,6 +133,30 @@ export default function Home() {
     setTasks((previous) => previous.map((task) => (task.id === taskId ? updatedTask : task)));
   };
 
+  const saveTask = async (
+    taskId: number,
+    updates: { title: string; deadline: string; steps: { id?: number; text: string }[] },
+  ) => {
+    const response = await fetch(`/api/tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? 'Could not save task.');
+    const updatedTask = data as Task;
+    setTasks((previous) => previous.map((task) => (task.id === taskId ? updatedTask : task)));
+  };
+
+  const deleteTask = async (taskId: number) => {
+    const response = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? 'Could not delete task.');
+    setTasks((previous) => previous.filter((task) => task.id !== taskId));
+    setEditingTaskId(null);
+    setSelectedTaskId(null);
+  };
+
   const createTask = async (title: string) => {
     const today = new Date();
     const deadline = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -151,6 +184,7 @@ export default function Home() {
       const updatedTask = data as Task;
       setTasks((previous) => previous.map((task) => (task.id === taskId ? updatedTask : task)));
       setSelectedTaskId(completed ? null : taskId);
+      setEditingTaskId(null);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Could not update task.');
     }
@@ -163,11 +197,18 @@ export default function Home() {
           <TaskList
             tasks={tasks}
             selectedTaskId={selectedTaskId}
-            onSelectTask={setSelectedTaskId}
+            onSelectTask={(taskId) => {
+              setSelectedTaskId(taskId);
+              setEditingTaskId(null);
+            }}
             onSelectedRowElement={setSelectedRowEl}
             onSelectedTitleElement={setSelectedTitleEl}
             selectedGradient={selectedGradient}
             onToggleComplete={toggleTaskCompletion}
+            editingTaskId={editingTaskId}
+            draftTitle={draftTitle}
+            onDraftTitleChange={setDraftTitle}
+            onCancelEdit={() => setEditingTaskId(null)}
             canAddTask={!isLoadingTasks && !loadError && tasks.length < 9}
             onCreateTask={createTask}
             loadError={loadError}
@@ -179,6 +220,15 @@ export default function Home() {
             task={selectedTask}
             onToggleStep={toggleStep}
             onAddStep={addStep}
+            onSaveTask={saveTask}
+            onDeleteTask={deleteTask}
+            editingTaskId={editingTaskId}
+            draftTitle={draftTitle}
+            onStartEditing={(task) => {
+              setDraftTitle(task.title);
+              setEditingTaskId(task.id);
+            }}
+            onStopEditing={() => setEditingTaskId(null)}
             highlightGradient={detailGradient}
           />
         </div>

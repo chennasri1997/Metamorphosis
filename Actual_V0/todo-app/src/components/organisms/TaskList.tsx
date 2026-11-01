@@ -1,5 +1,5 @@
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Input, Listy } from 'antd';
+import { Alert, Button, Card, Input } from 'antd';
 import { useState } from 'react';
 import TaskListRow from '@/components/molecules/TaskListRow';
 import { palette } from '@/lib/theme';
@@ -14,6 +14,10 @@ interface TaskListProps {
   onSelectedTitleElement?: (el: HTMLSpanElement | null) => void;
   selectedGradient?: CSSProperties;
   onToggleComplete: (taskId: number, completed: boolean) => void;
+  editingTaskId: number | null;
+  draftTitle: string;
+  onDraftTitleChange: (title: string) => void;
+  onCancelEdit: () => void;
   canAddTask: boolean;
   onCreateTask: (title: string) => Promise<void>;
   loadError: string;
@@ -27,6 +31,10 @@ export default function TaskList({
   onSelectedTitleElement,
   selectedGradient,
   onToggleComplete,
+  editingTaskId,
+  draftTitle,
+  onDraftTitleChange,
+  onCancelEdit,
   canAddTask,
   onCreateTask,
   loadError,
@@ -74,24 +82,28 @@ export default function TaskList({
         },
       }}
     >
-      <Listy
-        items={activeTasks}
-        rowKey="id"
-        itemRender={(task) => (
-          <TaskListRow
-            title={task.title}
-            deadline={task.deadline}
-            stepCount={task.steps.length}
-            selected={task.id === selectedTaskId}
-            completed={task.completed}
-            onToggleComplete={(completed) => onToggleComplete(task.id, completed)}
-            onClick={() => onSelectTask(task.id)}
-            rowRef={task.id === selectedTaskId ? onSelectedRowElement : undefined}
-            titleRef={task.id === selectedTaskId ? onSelectedTitleElement : undefined}
-            selectedGradient={task.id === selectedTaskId ? selectedGradient : undefined}
-          />
-        )}
-      />
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {activeTasks.map((task) => (
+          <li key={task.id} style={{ padding: 0, border: 0 }}>
+            <TaskListRow
+              title={task.title}
+              deadline={task.deadline}
+              stepCount={task.steps.length}
+              selected={task.id === selectedTaskId}
+              completed={task.completed}
+              isEditingTitle={task.id === editingTaskId}
+              draftTitle={draftTitle}
+              onDraftTitleChange={onDraftTitleChange}
+              onCancelEdit={onCancelEdit}
+              onToggleComplete={(completed) => onToggleComplete(task.id, completed)}
+              onClick={() => onSelectTask(task.id)}
+              rowRef={task.id === selectedTaskId ? onSelectedRowElement : undefined}
+              titleRef={task.id === selectedTaskId ? onSelectedTitleElement : undefined}
+              selectedGradient={task.id === selectedTaskId ? selectedGradient : undefined}
+            />
+          </li>
+        ))}
+      </ul>
       {loadError && <Alert type="error" showIcon message={loadError} />}
       {isAdding ? (
         <form onSubmit={submitNewTask} className="flex items-center gap-2 px-4 py-3">

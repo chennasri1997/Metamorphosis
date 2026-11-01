@@ -7,11 +7,8 @@ interface DateBadgeProps {
 }
 
 export default function DateBadge({ date, compact = false }: DateBadgeProps) {
-  const formatted = new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const [year, month, day] = date.split('-');
+  const formatted = `${day}/${month}/${year.slice(-2)}`;
 
   return (
     <Tag

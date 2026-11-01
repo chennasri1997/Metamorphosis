@@ -1,7 +1,7 @@
-import { palette } from '@/lib/theme';
-import { Checkbox } from 'antd';
+import { Checkbox, Input } from 'antd';
 import type { CSSProperties } from 'react';
 import DateBadge from '@/components/atoms/DateBadge';
+import { palette } from '@/lib/theme';
 
 interface TaskListRowProps {
   title: string;
@@ -9,6 +9,10 @@ interface TaskListRowProps {
   stepCount: number;
   selected: boolean;
   completed: boolean;
+  isEditingTitle?: boolean;
+  draftTitle?: string;
+  onDraftTitleChange?: (title: string) => void;
+  onCancelEdit?: () => void;
   onToggleComplete: (completed: boolean) => void;
   onClick?: () => void;
   rowRef?: (el: HTMLDivElement | null) => void;
@@ -22,6 +26,10 @@ export default function TaskListRow({
   stepCount,
   selected,
   completed,
+  isEditingTitle = false,
+  draftTitle = '',
+  onDraftTitleChange,
+  onCancelEdit,
   onToggleComplete,
   onClick,
   rowRef,
@@ -50,8 +58,22 @@ export default function TaskListRow({
         />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span ref={titleRef} className={completed ? 'line-through opacity-60' : ''}>
-          {title}
+        <span ref={titleRef} className={isEditingTitle ? 'block' : completed ? 'line-through opacity-60' : ''}>
+          {isEditingTitle ? (
+            <Input
+              autoFocus
+              aria-label="Task title"
+              value={draftTitle}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => onDraftTitleChange?.(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') onCancelEdit?.();
+              }}
+              style={{ fontSize: 21, fontWeight: 600 }}
+            />
+          ) : (
+            title
+          )}
         </span>
         {!selected && (
           <span style={{ color: palette.charcoal, fontSize: 14, fontWeight: 400, opacity: 0.72 }}>

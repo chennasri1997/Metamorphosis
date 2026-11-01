@@ -48,30 +48,60 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     title?: string;
     deadline?: string;
     completed?: boolean;
-    steps?: { text: string }[];
+    steps?: { id?: number; text: string }[];
     addStep?: string;
   };
 
   if (steps && steps.length > MAX_STEPS) {
     return NextResponse.json({ error: `a task can have at most ${MAX_STEPS} steps` }, { status: 400 });
   }
+  if (steps?.some((step) => !step.text.trim())) {
+    return NextResponse.json({ error: 'step text is required' }, { status: 400 });
+  }
   if (typeof addStep === 'string' && !addStep.trim()) {
     return NextResponse.json({ error: 'step text is required' }, { status: 400 });
   }
 
-  db.prepare('UPDATE tasks SET title = ?, deadline = ? WHERE id = ?').run(
-    title ?? existing.title,
-    deadline ?? existing.deadline,
-    taskId,
-  );
-
   if (steps) {
+    const existingSteps = db.prepare('SELECT id, completed FROM steps WHERE taskId = ?').all(taskId) as {
+      id: number;
+      completed: number;
+    }[];
+    const existingCompletion = new Map(existingSteps.map((step) => [step.id, step.completed]));
+    const existingIds = new Set(existingSteps.map((step) => step.id));
+    const retainedIds = new Set<number>();
+    const updateStep = db.prepare('UPDATE steps SET text = ?, "order" = ? WHERE id = ? AND taskId = ?');
+    const insertStep = db.prepare('INSERT INTO steps (taskId, text, completed, "order") VALUES (?, ?, 0, ?)');
+    const deleteStep = db.prepare('DELETE FROM steps WHERE id = ? AND taskId = ?');
+
     db.transaction(() => {
-      db.prepare('DELETE FROM steps WHERE taskId = ?').run(taskId);
-      const insertStep = db.prepare('INSERT INTO steps (taskId, text, "order") VALUES (?, ?, ?)');
-      steps.forEach((step, index) => insertStep.run(taskId, step.text, index + 1));
-      db.prepare('UPDATE tasks SET completed = 0 WHERE id = ?').run(taskId);
+      db.prepare('UPDATE tasks SET title = ?, deadline = ? WHERE id = ?').run(
+        title ?? existing.title,
+        deadline ?? existing.deadline,
+        taskId,
+      );
+      steps.forEach((step, index) => {
+        if (step.id && existingIds.has(step.id)) {
+          updateStep.run(step.text.trim(), index + 1, step.id, taskId);
+          retainedIds.add(step.id);
+        } else {
+          insertStep.run(taskId, step.text.trim(), index + 1);
+        }
+      });
+      existingSteps.forEach((step) => {
+        if (!retainedIds.has(step.id)) deleteStep.run(step.id, taskId);
+      });
+      const keptCompleted = steps.length === 0
+        ? existing.completed === 1
+        : steps.every((step) => step.id !== undefined && existingCompletion.get(step.id) === 1);
+      db.prepare('UPDATE tasks SET completed = ? WHERE id = ?').run(keptCompleted ? 1 : 0, taskId);
     })();
+  } else {
+    db.prepare('UPDATE tasks SET title = ?, deadline = ? WHERE id = ?').run(
+      title ?? existing.title,
+      deadline ?? existing.deadline,
+      taskId,
+    );
   }
 
   if (typeof addStep === 'string') {
